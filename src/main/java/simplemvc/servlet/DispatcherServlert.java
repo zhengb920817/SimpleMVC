@@ -4,7 +4,9 @@ import simplemvc.annotation.Controller;
 import simplemvc.annotation.RequestMapping;
 import simplemvc.annotation.RequestParam;
 import simplemvc.annotation.ResponseBody;
+import simplemvc.common.HttpResponse;
 import simplemvc.utils.ClasspathPackageScanner;
+import simplemvc.utils.CollectionUtils;
 import simplemvc.utils.PackageScanner;
 
 import javax.servlet.ServletConfig;
@@ -21,14 +23,27 @@ import java.util.*;
 
 public class DispatcherServlert extends HttpServlet {
 
+
 	private Properties properties = new Properties();
 
+	/**
+	 * 配置文件扫描包下的所以类名
+	 */
 	private List<String> classNames = Collections.synchronizedList(new ArrayList<>());
 
+	/**
+	 * handlerMapping 用于存放请求映射url和其对应的具体方法
+	 */
 	private Map<String, Method> handlerMapping = Collections.synchronizedMap(new HashMap<String, Method>());
 
+	/**
+	 *controllerMap 用于存放请求url和其对应的具体的controller类
+	 */
 	private Map<String, Object> controllerMap = Collections.synchronizedMap(new HashMap<>());
 
+	/**
+	 * controllerInstances 用于存放具体类名和其对应的controller类的实例
+	 */
 	private Map<String, Object> controllerInstances = Collections.synchronizedMap(new HashMap<>());
 
 	private void loadConfig(String location){
@@ -37,6 +52,7 @@ public class DispatcherServlert extends HttpServlet {
 			if(inputStream != null) {
 				properties.load(inputStream);
 			}
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -52,7 +68,7 @@ public class DispatcherServlert extends HttpServlet {
 	}
 
 	private void initializeInstances() {
-		if (classNames.isEmpty()) {
+		if(CollectionUtils.isEmptyList(classNames)){
 			return;
 		}
 
@@ -79,13 +95,14 @@ public class DispatcherServlert extends HttpServlet {
 		if (controllerInstances.isEmpty()) {
 			return;
 		}
+
 		for (Map.Entry<String, Object> entry : controllerInstances.entrySet()) {
 			Class<? extends Object> clazz = entry.getValue().getClass();
-			StringBuilder baseUrl = new StringBuilder();
+			String baseUrl = "";
 
 			if (clazz.isAnnotationPresent(RequestMapping.class)) {
 				String value = clazz.getAnnotation(RequestMapping.class).value();
-				baseUrl.append(value);
+				baseUrl = value;
 			}
 
 			Method[] methods = clazz.getMethods();
@@ -96,9 +113,14 @@ public class DispatcherServlert extends HttpServlet {
 
 				String value = method.getAnnotation(RequestMapping.class).value();
 
-				baseUrl.append("/").append(value);
+				String methodUrl = "/" + value;
 
-				String uri = baseUrl.toString().replaceAll("/+","/");
+				StringBuilder fullUrl = new StringBuilder();
+				fullUrl.append(baseUrl).append(methodUrl);
+
+				//把//替换成/
+				String uri = fullUrl.toString().replaceAll("/+","/");
+
 				handlerMapping.put(uri, method);
 				try {
 					controllerMap.put(uri, clazz.newInstance());
@@ -136,11 +158,12 @@ public class DispatcherServlert extends HttpServlet {
 			System.out.println(param.getName());
 			Class<?> paramType = param.getType();
 			String typeSimpleName = paramType.getSimpleName();
-			if (typeSimpleName.equals("HttpServletRequest")) {
+
+			if(paramType == HttpServletRequest.class){
 				paramValues[i] = req;
 				continue;
 			}
-			if (typeSimpleName.equals("HttpServletResponse")) {
+			if (paramType == HttpServletResponse.class) {
 				paramValues[i] = resp;
 				continue;
 			}
@@ -163,11 +186,14 @@ public class DispatcherServlert extends HttpServlet {
 		}
 
 		try {
-			resp.setCharacterEncoding("utf-8");
+			resp.setCharacterEncoding(HttpResponse.DEFAULT_CHARSET);
+			resp.setContentType(HttpResponse.DEFUALT_CONTENTTYPE);
 			resp.setStatus(HttpServletResponse.SC_OK);
 			Object resturnValue = invokeMethd.invoke(controllerMap.get(requestUrl), paramValues);
 			if(invokeMethd.isAnnotationPresent(ResponseBody.class)){
-				resp.getOutputStream().write(((String)resturnValue).getBytes("utf-8"));
+				byte[] responseBodyByte = ((String)resturnValue).getBytes(HttpResponse.DEFAULT_CHARSET);
+				resp.setContentLength(responseBodyByte.length);
+				resp.getOutputStream().write(responseBodyByte);
 			}
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			// TODO Auto-generated catch block
@@ -192,12 +218,13 @@ public class DispatcherServlert extends HttpServlet {
 	@Override
 	public void init(ServletConfig config) throws ServletException {
 		// TODO Auto-generated method stub
+		//读取配置文件路径
 		String contextLocation = config.getInitParameter("contextConfigLocation");
-
+		//加载配置文件
 		loadConfig(contextLocation);
-
+		//包扫描路径
 		String scanPackage = properties.getProperty("componentscan");;
-
+		//执行包扫描
 		doSacanner(scanPackage);
 		
 		initializeInstances();

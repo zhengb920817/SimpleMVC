@@ -47,17 +47,15 @@ public class ClasspathPackageScanner  implements PackageScanner{
      */
     @Override
     public List<String> getFullyQualifiedClassNameList() throws IOException {
-        //logger.info("开始扫描包{}下的所有类", basePackage);
-
         return doScan(basePackage, new ArrayList<>());
     }
 
     /**
      * Actually perform the scanning procedure.
      *
-     * @param basePackage
-     * @param nameList A list to contain the result.
-     * @return A list of fully qualified names.
+     * @param basePackage 具体包路径：如simplemvc.controller
+     * @param nameList 用于存储返回结果列表
+     * @return 该包下所有类的具体路径.
      *
      * @throws IOException
      */
@@ -140,8 +138,6 @@ public class ClasspathPackageScanner  implements PackageScanner{
      * For test purpose.
      */
     public static void main(String[] args) throws Exception {
-       // PackageScanner scan = new ClasspathPackageScanner("cn.fh.lightning.bean");
-        //scan.getFullyQualifiedClassNameList();
         ClasspathPackageScanner scanner = new ClasspathPackageScanner("simplemvc.controller");
         List<String> packages = scanner.getFullyQualifiedClassNameList();
         System.out.println(packages);

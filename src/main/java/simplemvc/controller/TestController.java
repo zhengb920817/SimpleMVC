@@ -3,6 +3,7 @@ package simplemvc.controller;
 import simplemvc.annotation.Controller;
 import simplemvc.annotation.RequestMapping;
 import simplemvc.annotation.RequestParam;
+import simplemvc.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -27,6 +28,7 @@ public class TestController {
     }
 
     @RequestMapping(value =  "test2")
+    @ResponseBody
     public String test2(){
         return "test2返回内容";
     }
